@@ -22,7 +22,7 @@ if not os.path.isfile("config.ini"):
 
 config = configparser.ConfigParser()
 config.read("config.ini")
-logging.debug(f"configuration read: {config.items()}")
+logging.debug("configuration read")
 
 bot_basic_command = re.compile(
     "(?i)(?s)^ *bot +(help|subscribe|unsubscribe)(?: +([a-z0-9]+)(?: +(.*))?)? *$")
