@@ -2,6 +2,7 @@
 
 import atexit
 import configparser
+import logging
 import os.path
 import re
 
@@ -12,13 +13,16 @@ from database import Database
 
 NEWLINE = "\n"
 
+logging.basicConfig(encoding='utf-8', level=logging.DEBUG)
+
 if not os.path.isfile("config.ini"):
-    print(
+    logging.error(
         "config.ini not found - maybe you didn't copy (and customize) the file config-template.ini to config.ini yet?")
     exit(1)
 
 config = configparser.ConfigParser()
 config.read("config.ini")
+logging.debug(f"configuration read: {config}")
 
 bot_basic_command = re.compile(
     "(?i)(?s)^ *bot +(help|subscribe|unsubscribe)(?: +([a-z0-9]+)(?: +(.*))?)? *$")
@@ -74,16 +78,20 @@ def execute_basic_cmd(source, command, group, name):
             gr = db.group(group_name=group)
             phone = with_country_code(source)
             db.member_add(group_id=gr[0], member_phone=phone, member_name=name)
+            logging.debug(f"subscribe: added {phone} {name} to group {gr[1]}")
             send_msg(source, f"added you ({phone} alias {name}) to group {gr[1]}")
         except Exception as e:
+            logging.warning(f"subscribe: could not add {source} to group {group}: {e}")
             send_msg(source, f"could not add you to {group}: {e}")
     elif command == "unsubscribe":
         try:
             gr = db.group(group_name=group)
             phone = with_country_code(source)
             db.member_remove(group_id=gr[0], member_phone=phone)
+            logging.debug(f"unsubscribe: remove {phone} from group {gr[1]} ")
             send_msg(source, f"deleted you ({phone}) from group {gr[1]} if you were a member")
         except Exception as e:
+            logging.warning(f"unsubscribe: could not delete {source} from group {group}: {e}")
             send_msg(source, f"could not delete you from {group}: {e}")
 
 
@@ -92,14 +100,18 @@ def execute_admin_cmd(source, command, group, param):
         try:
             groups = db.groups()
             group_names = list(map(lambda g: g[1], groups))
+            logging.debug(f"listgroups: called by {source}")
             send_msg(source, f"available groups:\n\n{', '.join(group_names)}")
         except Exception as e:
+            logging.warning(f"listgroups: called by {source}, exception {e}")
             send_msg(source, f"could not list groups: {e}")
     elif command == "addgroup":
         try:
             db.group_add(group_name=group)
+            logging.debug(f"addgroup {group}: called by {source}")
             send_msg(source, f"group {group} created")
         except Exception as e:
+            logging.warning(f"addgroup {group}: called by {source}, exception {e}")
             send_msg(source, f"could not create group {group}: {e}")
     elif command == "removegroup":
         try:
@@ -107,18 +119,22 @@ def execute_admin_cmd(source, command, group, param):
             members = db.group_members(group_id=gr[0])
             members_as_strings = list(map(lambda g: f"{g[0]} {g[1]}", members))
             db.group_remove(group_name=group)
+            logging.debug(f"removegroup {group}: called by {source}")
             send_msg(source, f'group {gr[1]} deleted including its {len(members)} members:\n\n'
                              f'{NEWLINE.join(members_as_strings)}')
         except Exception as e:
+            logging.warning(f"removegroup {group}: called by {source}, exception {e}")
             send_msg(source, f"could not delete group {group}: {e}")
     elif command == "list":
         try:
             gr = db.group(group_name=group)
             members = db.group_members(group_id=gr[0])
             members_as_strings = list(map(lambda g: f"{g[0]} {g[1]}", members))
+            logging.debug(f"list {group}: called by {source}")
             send_msg(source, f'group {gr[1]} consists of {len(members)} members:\n\n'
                              f'{NEWLINE.join(members_as_strings)}')
         except Exception as e:
+            logging.warning(f"list {group}: called by {source}, exception {e}")
             send_msg(source, f"could not list group {group}: {e}")
     elif command == "add":
         try:
@@ -131,8 +147,10 @@ def execute_admin_cmd(source, command, group, param):
                 phone = with_country_code(param)
                 name = ""
             db.member_add(group_id=gr[0], member_phone=phone, member_name=name)
+            logging.debug(f"add {phone} {name} to group {gr[1]}: called by {source}")
             send_msg(source, f"added {phone} {name} to group {gr[1]}")
         except Exception as e:
+            logging.warning(f"add {param} to {group}: called by {source}, exception {e}")
             send_msg(source, f"could not add to group {group}: {e}")
     elif command == "remove":
         try:
@@ -145,17 +163,19 @@ def execute_admin_cmd(source, command, group, param):
                 name = param
                 phone = ""
                 db.member_remove(group_id=gr[0], member_name=name)
+            logging.debug(f"remove {phone} {name} from group {gr[1]}: called by {source}")
             send_msg(source, f"deleted {phone} {name} from group {gr[1]} if the person was a member")
         except Exception as e:
+            logging.warning(f"remove {param} from {group}: called by {source}, exception {e}")
             send_msg(source, f"could not delete from group {group}: {e}")
     elif command == "send":
+        send_success = list()
+        send_failure = dict()
         try:
             gr = db.group(group_name=group)
             if param is None or len(param) == 0:
                 raise Exception("you didn't supply the message text after the groupname")
             members = db.group_members(group_id=gr[0])
-            send_success = list()
-            send_failure = dict()
             for member in members:
                 try:
                     send_msg(member[0], param)
@@ -166,11 +186,16 @@ def execute_admin_cmd(source, command, group, param):
                                                         send_success)))
             send_failure_pretty = NEWLINE.join(list(map(lambda i: f"{i[0][1]} ({i[0][0]}): {i[1]}",
                                                         send_failure.items())))
+            logging.debug(f"sent message to group {group}: called by {source}, message: {param}")
             send_msg(source, f"message to group {group}:\n\n{param}\n\n"
                              f"successfully sent to:\n\n{send_success_pretty}\n\n"
                              f"problems while sending to:\n\n{send_failure_pretty}")
         except Exception as e:
+            logging.warning(f"send '{param[:15]}' to group {group}: called by {source}, exception {e}")
             send_msg(source, f"could not send message to group {group}: {e}")
+        finally:
+            logging.debug(f"send '{param[:15]}' to group {group}: sent successfully to {send_success}")
+            logging.debug(f"send '{param[:15]}' to group {group}: failed to send to {send_failure}")
 
 
 def is_admin_user(number):
