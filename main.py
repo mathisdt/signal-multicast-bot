@@ -40,8 +40,7 @@ def exit_handler():
 
 
 def send_msg(recipient, message):
-    signal.sendMessage(message, [], recipient)
-    # signal.sendMessage(message, [], [recipient])
+    signal.sendMessage(message, [], [recipient], signature="sasas")
 
 
 def with_country_code(phone_number):
