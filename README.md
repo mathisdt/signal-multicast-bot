@@ -49,3 +49,8 @@ bot send Testgroup This message should be sent!
 4. Copy `config-template.ini` to `config.ini` and edit it so it contains 
    the phone number(s) you want to use and the correct database credentials.
 5. Call `main.py` with at least Python 3.6 installed.
+
+## License
+
+This project is licensed under GPL v3. If you submit or contribute changes, these are automatically licensed
+under GPL v3 as well. If you don't want that, please don't submit the contribution (e.g. pull request)!
