@@ -1,2 +1,2 @@
-PyGObject==3.54.5
+PyGObject==3.56.0
 pydbus==0.6.0
